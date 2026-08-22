@@ -1,0 +1,257 @@
+# ============================================================
+# Cursor Skill – 个人博客全栈项目 (FastAPI + Vue3)
+# 技术栈：
+#   后端：Python 3.12，FastAPI，SQLAlchemy 2.0，MySQL，Alembic，uv
+#   前端：Vue 3 (Composition API)，JavaScript，Axios，Vue Router，Pinia，Vite
+# 目录结构参考：FastAdmin（模块化分层）
+# 包管理：uv（pyproject.toml + uv.lock）
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. 项目全局约定
+# ------------------------------------------------------------
+project:
+  name: "personal-blog"
+  root: "."
+  backend_dir: "backend"     # 后端根目录
+  frontend_dir: "frontend"   # 前端根目录
+
+# 编码风格：
+#   - Python: 遵循 PEP 8，使用 ruff 格式化（或 black），行宽 100
+#   - JavaScript: ESLint + Prettier（2 空格缩进）
+#   - 所有代码需包含必要注释，API 接口需有文档字符串
+
+# ------------------------------------------------------------
+# 2. 后端项目结构（FastAdmin 风格）
+# ------------------------------------------------------------
+backend:
+  structure:
+    # 根目录下
+    - "backend/pyproject.toml"          # uv 项目配置与依赖
+    - "backend/uv.lock"                 # 锁定文件（自动生成）
+    - "backend/.env"                    # 环境变量（不提交）
+    - "backend/.env.example"            # 环境变量示例
+    - "backend/alembic.ini"             # Alembic 配置
+    - "backend/README.md"
+
+    # 应用核心
+    - "backend/app/"
+      - "__init__.py"
+      - "main.py"                       # FastAPI 应用入口
+      - "core/"                         # 核心配置（数据库、安全、设置）
+          - "__init__.py"
+          - "config.py"                 # Pydantic Settings
+          - "database.py"               # 数据库引擎和会话
+          - "security.py"               # JWT、密码哈希
+          - "dependencies.py"           # 全局依赖注入（get_db, get_current_user）
+      - "common/"                       # 公共模块（模型、CRUD、Schema、工具）
+          - "__init__.py"
+          - "models/"                   # SQLAlchemy 模型（全局）
+          - "schemas/"                  # Pydantic Schema（全局）
+          - "crud/"                     # 数据库操作函数（全局）
+          - "utils/"                    # 工具函数
+      - "admin/"                        # 后台管理模块（需鉴权，路由前缀 /api/admin）
+          - "__init__.py"
+          - "routes/"                   # 路由定义
+          - "services/"                 # 业务逻辑（可选）
+      - "api/"                          # 前台公开模块（路由前缀 /api/v1）
+          - "__init__.py"
+          - "routes/"
+      - "middleware/"                   # 自定义中间件（CORS、日志等）
+          - "__init__.py"
+      - "exceptions/"                   # 自定义异常与处理
+          - "__init__.py"
+          - "handlers.py"
+
+    # 迁移与测试
+    - "backend/alembic/"                # Alembic 迁移脚本
+    - "backend/tests/"                  # pytest 测试
+
+# 说明：
+#   - admin 和 api 模块分别对应后台管理接口和前端展示接口，路由前缀不同
+#   - common 下的模型和 CRUD 被两个模块共享，避免重复
+#   - core 提供全局配置和依赖，保持单一入口
+
+# ------------------------------------------------------------
+# 3. 后端开发规则
+# ------------------------------------------------------------
+backend_config:
+  python_version: "3.12"
+  package_manager: "uv"
+  env_file: ".env"
+
+  # ---- 3.1 依赖管理 (uv) ----
+  uv_rules:
+    - 初始化项目：`uv init --app`（如果未创建）
+    - 添加依赖：`uv add fastapi sqlalchemy pymysql alembic python-dotenv pydantic-settings passlib[bcrypt] python-jose[cryptography] httpx uvicorn[standard]`
+    - 开发依赖：`uv add --dev pytest pytest-asyncio black ruff mypy`
+    - 同步依赖：`uv sync`
+    - 运行应用：`uv run uvicorn app.main:app --reload`
+
+  # ---- 3.2 配置管理 ----
+  config_rules:
+    - 使用 `pydantic_settings`，在 `app/core/config.py` 中定义 `Settings` 类
+    - 从 `.env` 读取配置，示例内容：
+      DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/blog
+      SECRET_KEY=your-secret-key
+      ALGORITHM=HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES=30
+      ADMIN_PREFIX=/api/admin
+      API_PREFIX=/api/v1
+    - 在 `main.py` 中初始化配置：`settings = Settings()`
+
+  # ---- 3.3 数据库与模型 ----
+  db_rules:
+    - 使用 SQLAlchemy 2.0 同步模式（便于学习），引擎在 `core/database.py`
+    - 提供 `get_db()` 依赖，返回 `Session`，使用 `with` 或 `yield` 确保关闭
+    - 所有模型继承自 `Base`（由 `database.py` 定义）
+    - 模型放在 `common/models/`，并在 `__init__.py` 中导入，方便 Alembic 自动发现
+    - 命名规范：表名复数小写，字段名 snake_case
+
+  # ---- 3.4 Schema 定义 ----
+  schema_rules:
+    - 放在 `common/schemas/`，按模块或按模型命名（如 `post.py`, `user.py`）
+    - 定义 `BaseSchema`（含 id, created_at, updated_at）
+    - 分别定义 `CreateSchema`, `UpdateSchema`, `ResponseSchema`
+    - 使用 `orm_mode = True`（Pydantic v2 为 `from_attributes = True`）
+
+  # ---- 3.5 CRUD 操作 ----
+  crud_rules:
+    - 放在 `common/crud/`，每个模型一个文件
+    - 函数命名：`get`, `get_multi`, `create`, `update`, `delete`
+    - 第一个参数为 `db: Session`
+    - 分页：`get_multi` 接收 `skip` 和 `limit`，返回 `(items, total)`
+
+  # ---- 3.6 路由层 ----
+  router_rules:
+    - 后台路由放在 `admin/routes/`，使用 `APIRouter(prefix=settings.ADMIN_PREFIX)`
+    - 前台路由放在 `api/routes/`，使用 `APIRouter(prefix=settings.API_PREFIX)`
+    - 每个路由模块在 `admin/routes/__init__.py` 或 `api/routes/__init__.py` 中注册
+    - 路由函数依赖注入：`db: Session = Depends(get_db)`，鉴权路由依赖 `current_user: User = Depends(get_current_user)`
+    - 所有路由使用 Pydantic Schema 作为请求体和响应模型
+
+  # ---- 3.7 安全与鉴权 ----
+  security_rules:
+    - 密码哈希使用 `passlib.context.CryptContext(schemes=["bcrypt"])`
+    - JWT 生成与验证在 `core/security.py`
+    - `get_current_user` 从请求头提取 token，查询数据库验证
+    - 后台路由全部需要鉴权（除登录接口外），前台部分接口可能需要鉴权（如用户个人操作）
+
+  # ---- 3.8 异常处理 ----
+  exception_rules:
+    - 自定义业务异常（如 `BusinessError`）放在 `exceptions/`
+    - 在 `handlers.py` 中注册全局异常处理器，返回统一 JSON 格式：
+      {"code": 400, "message": "错误信息", "data": null}
+
+  # ---- 3.9 迁移 (Alembic) ----
+  migration_rules:
+    - 在 `alembic.ini` 中设置 `sqlalchemy.url = %(DATABASE_URL)s`（使用环境变量）
+    - 生成迁移：`uv run alembic revision --autogenerate -m "描述"`
+    - 升级：`uv run alembic upgrade head`
+    - 确保 `alembic/env.py` 中导入了所有模型（通过 `app.common.models`）
+
+  # ---- 3.10 测试 ----
+  test_rules:
+    - 使用 pytest，测试文件放在 `tests/`
+    - 使用 `httpx.AsyncClient` 测试 API，依赖数据库（可使用临时数据库或测试容器）
+
+# ------------------------------------------------------------
+# 4. 前端开发规则（Vue3 + JavaScript）
+# ------------------------------------------------------------
+frontend:
+  framework: "Vue 3"
+  api_client: "Axios"
+  router: "Vue Router 4"
+  state: "Pinia"
+  build_tool: "Vite"
+
+  # ---- 4.1 项目结构 ----
+  structure:
+    - "frontend/"
+      - "index.html"
+      - "package.json"
+      - "vite.config.js"
+      - ".env.development"
+      - ".env.production"
+      - "src/"
+          - "main.js"
+          - "App.vue"
+          - "api/"                # API 请求封装（按模块）
+          - "components/"         # 公共组件
+          - "views/"              # 页面级组件
+          - "router/"             # 路由配置
+          - "store/"              # Pinia stores
+          - "utils/"              # 工具函数
+          - "assets/"             # 静态资源（CSS, images）
+          - "layouts/"            # 布局组件（可选）
+
+  # ---- 4.2 组件规范 ----
+  component_rules:
+    - 使用 `<script setup>` + Composition API
+    - 文件名 PascalCase，组件内 `defineOptions({ name: '...' })`（便于调试）
+    - Props 使用 `defineProps`，添加默认值和类型（使用 JSDoc 或运行时验证）
+    - Emits 使用 `defineEmits`
+    - 异步操作使用 `async/await`，配合 `try/catch`
+    - 状态管理优先使用 Pinia，组件内状态使用 `ref`/`reactive`
+
+  # ---- 4.3 API 请求 ----
+  api_rules:
+    - 在 `src/api/index.js` 创建 Axios 实例，设置 `baseURL`（从环境变量读取）
+    - 添加请求拦截器（自动携带 token），响应拦截器（统一错误处理）
+    - 每个模块独立文件（如 `src/api/post.js`），导出函数，返回 Promise
+
+  # ---- 4.4 路由 ----
+  router_rules:
+    - 使用 `createWebHistory`，路由懒加载
+    - 路由元信息 `meta.requiresAuth` 用于权限控制
+    - 前置守卫 `beforeEach` 检查 token 和用户信息
+
+  # ---- 4.5 状态管理 ----
+  store_rules:
+    - 使用 Pinia，按模块定义（如 `useUserStore`, `usePostStore`）
+    - 推荐 setup 语法：`defineStore(id, () => { ... })`
+    - 异步 action 调用 API，更新 state
+
+  # ---- 4.6 环境变量 ----
+  env_rules:
+    - 使用 `import.meta.env.VITE_*`，例如 `VITE_API_BASE_URL`
+    - 开发代理配置在 `vite.config.js` 中，避免跨域
+
+# ------------------------------------------------------------
+# 5. 全栈协作规则
+# ------------------------------------------------------------
+fullstack:
+  cors:
+    - 后端允许 `http://localhost:5173`（开发）和部署域名
+    - 在 `app/middleware/cors.py` 或 `main.py` 中配置 `CORSMiddleware`
+
+  api_design:
+    - 统一响应格式：`{"code": 0, "message": "success", "data": ...}`
+    - 错误格式：`{"code": 非0, "message": "错误", "data": null}`
+    - 分页格式：`{"items": [], "total": 100, "page": 1, "size": 10}`
+
+  env_sync:
+    - 后端 `.env` 定义数据库和 JWT 等
+    - 前端 `.env.development` 定义 `VITE_API_BASE_URL=http://localhost:8000`
+
+
+
+ 
+# ------------------------------------------------------------
+# 7. 开发流程建议
+# ------------------------------------------------------------
+workflow:
+  - 1. 初始化后端项目：`cd backend && uv init --app`，编辑 pyproject.toml 添加依赖，执行 `uv sync`
+  - 2. 配置环境变量 `.env`，创建数据库
+  - 3. 编写 core 配置和数据库连接
+  - 4. 设计数据模型（common/models），创建迁移
+  - 5. 编写 CRUD 和 Schema
+  - 6. 编写 admin 和 api 路由，并注册到 main.py
+  - 7. 测试 API（使用 pytest 或 Postman）
+  - 8. 初始化前端项目：`npm create vue@latest` 或 `yarn create vite`
+  - 9. 配置 API 请求、路由、store
+  - 10. 开发页面，联调
+
+# ------------------------------------------------------------
+# 结束
+# ------------------------------------------------------------
