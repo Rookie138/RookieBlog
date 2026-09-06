@@ -23,6 +23,7 @@
           :disabled="!isCreate"
           @input="slugTouched = true"
         />
+        <span v-if="!isCreate" class="hint">slug 用于定位文章，创建后不可修改</span>
       </label>
 
       <label class="field">
@@ -175,6 +176,16 @@ onMounted(load)
   border: 1px solid #e4e2dc;
   border-radius: 8px;
   background: #fff;
+}
+
+.field input:disabled {
+  background: #f2f0eb;
+  color: #5c5c5c;
+}
+
+.hint {
+  font-size: 0.82rem;
+  color: #8a8a8a;
 }
 
 .md-wrap {

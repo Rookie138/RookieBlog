@@ -22,11 +22,20 @@ request.interceptors.request.use((config) => {
   return config
 })
 
+function redirectToLogin() {
+  const base = import.meta.env.BASE_URL || '/'
+  // 已在登录页时不重复跳转（如登录失败 401），错误由页面自身展示
+  if (window.location.pathname.startsWith(`${base}login`)) return
+  const redirect = encodeURIComponent(window.location.pathname + window.location.search)
+  window.location.replace(`${base}login?redirect=${redirect}`)
+}
+
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY)
+      redirectToLogin()
     }
     return Promise.reject(new Error(extractErrorMessage(error)))
   },

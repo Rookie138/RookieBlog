@@ -5,9 +5,26 @@
       <RouterLink :to="{ name: 'article-create' }" class="btn">写文章</RouterLink>
     </div>
 
+    <div class="toolbar">
+      <div class="filters">
+        <button
+          v-for="f in filters"
+          :key="f.value"
+          type="button"
+          class="chip"
+          :class="{ active: activeFilter === f.value }"
+          @click="activeFilter = f.value"
+        >
+          {{ f.label }}
+        </button>
+      </div>
+      <span v-if="!loading && !error" class="muted count">共 {{ filtered.length }} 篇</span>
+    </div>
+
     <p v-if="loading" class="muted">加载中…</p>
     <p v-else-if="error" class="error">{{ error }}</p>
     <p v-else-if="articles.length === 0" class="muted">还没有文章，先写一篇吧。</p>
+    <p v-else-if="filtered.length === 0" class="muted">该状态下暂无文章。</p>
 
     <table v-else class="table">
       <thead>
@@ -18,7 +35,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in articles" :key="item.slug">
+        <tr v-for="item in filtered" :key="item.slug">
           <td>
             <RouterLink :to="{ name: 'article-edit', params: { slug: item.slug } }">
               {{ item.title }}
@@ -37,13 +54,7 @@
             >
               发布
             </button>
-            <button
-              v-else
-              type="button"
-              @click="changeStatus(item, 'draft')"
-            >
-              撤回
-            </button>
+            <button v-else type="button" @click="changeStatus(item, 'draft')">撤回</button>
             <button type="button" class="danger" @click="onDelete(item)">删除</button>
           </td>
         </tr>
@@ -53,12 +64,24 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { deleteArticle, fetchManageArticles, updateArticle } from '@/api/articles'
 
 const articles = ref([])
 const loading = ref(true)
 const error = ref('')
+const activeFilter = ref('all')
+
+const filters = [
+  { value: 'all', label: '全部' },
+  { value: 'draft', label: '草稿' },
+  { value: 'published', label: '已发布' },
+]
+
+const filtered = computed(() => {
+  if (activeFilter.value === 'all') return articles.value
+  return articles.value.filter((item) => item.status === activeFilter.value)
+})
 
 const statusMap = {
   draft: '草稿',
@@ -110,7 +133,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .head h1 {
@@ -123,6 +146,44 @@ onMounted(load)
   border-radius: 6px;
   background: #2d6a4f;
   color: #fff;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filters {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.chip {
+  padding: 0.25rem 0.8rem;
+  border: 1px solid #e4e2dc;
+  border-radius: 999px;
+  background: #fff;
+  color: #5c5c5c;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.chip:hover {
+  color: #2d6a4f;
+}
+
+.chip.active {
+  background: #2d6a4f;
+  border-color: #2d6a4f;
+  color: #fff;
+}
+
+.count {
+  font-size: 0.88rem;
+  white-space: nowrap;
 }
 
 .table {

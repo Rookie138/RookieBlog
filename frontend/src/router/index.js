@@ -5,6 +5,7 @@ import AboutView from '@/views/AboutView.vue'
 import ArticlesView from '@/views/ArticlesView.vue'
 import ArticleDetailView from '@/views/ArticleDetailView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import { SITE_NAME } from '@/config'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,8 +31,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const siteName = '学习笔记'
-  document.title = to.meta.title ? `${to.meta.title} · ${siteName}` : siteName
+  document.title = to.meta.title ? `${to.meta.title} · ${SITE_NAME}` : SITE_NAME
 })
 
 export default router

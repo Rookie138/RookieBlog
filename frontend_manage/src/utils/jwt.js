@@ -16,7 +16,7 @@ export function userFromAccessToken(accessToken) {
   if (!payload?.sub) return null
   return {
     id: Number(payload.sub),
-    username: payload.name ?? '',
+    username: payload.username ?? payload.name ?? '',
   }
 }
 

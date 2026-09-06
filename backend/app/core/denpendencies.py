@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Annotated
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -10,7 +10,7 @@ from app.api.auth.model import User
 from app.config.setting import settings
 from app.core.database import async_session_local
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 async def db_getter() -> AsyncGenerator[AsyncSession, None]:
@@ -24,7 +24,7 @@ async def redis_getter():
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token:  Annotated[str, Depends(oauth2_scheme)],
     db: AsyncSession = Depends(db_getter),
 ) -> User:
     try:

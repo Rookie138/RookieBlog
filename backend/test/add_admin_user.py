@@ -2,13 +2,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.api.auth.model import User
 from app.config.setting import settings
+from app.utils.hash_util import PwdHashUtil
 
 
 def add_user():
     username = 'admin'
     password = '123456'
     name = 'admin'
-    user = User(username=username, password=password, name=name)
+    hashed_password = PwdHashUtil.hash_password(password)
+    user = User(username=username, password=hashed_password, name=name)
     engine = create_engine(settings.DB_URI)
     SyncSessionLocal = sessionmaker(bind=engine,expire_on_commit=False)
     with SyncSessionLocal() as session:

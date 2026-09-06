@@ -1,7 +1,11 @@
+<script setup>
+import { SITE_NAME } from '@/config'
+</script>
+
 <template>
   <header class="site-header">
     <div class="header-inner">
-      <RouterLink :to="{ name: 'home' }" class="brand">学习笔记</RouterLink>
+      <RouterLink :to="{ name: 'home' }" class="brand">{{ SITE_NAME }}</RouterLink>
 
       <nav class="nav">
         <RouterLink :to="{ name: 'home' }" class="nav-link" active-class="is-active">
