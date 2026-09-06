@@ -31,7 +31,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: 
     if not PwdHashUtil.verify_password(form_data.password, user.password):
         raise HTTPException(status_code=400, detail="用户名或密码错误")
     data = {
-        'sub': user.id,
+        'sub': str(user.id),
         'username': user.username
     }
     access_token = create_access_token(data=data)
