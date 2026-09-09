@@ -1,0 +1,27 @@
+# BlogSystem 后端 systemd 服务单元
+# 放置：/etc/systemd/system/blog-backend.service
+# 用法：systemctl daemon-reload && systemctl enable --now blog-backend
+# 说明：单机 2C2G，uvicorn 单进程即可；只监听 127.0.0.1，由 nginx 反代对外
+
+[Unit]
+Description=BlogSystem FastAPI backend
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/blog/backend
+# 读取 backend/env/.env.prod（Settings 按 ENVIRONMENT 选择文件）
+Environment=ENVIRONMENT=prod
+ExecStart=/opt/blog/backend/.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
