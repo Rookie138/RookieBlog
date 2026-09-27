@@ -5,6 +5,13 @@
       <nav class="nav">
         <RouterLink :to="{ name: 'articles' }" class="nav-link">文章列表</RouterLink>
         <RouterLink :to="{ name: 'article-create' }" class="nav-link">写文章</RouterLink>
+        <RouterLink :to="{ name: 'comments' }" class="nav-link">
+          评论管理
+          <!-- 只有在评论管理页加载过之后才显示数量，避免侧边栏为了一个数字触发全站评论请求 -->
+          <span v-if="commentStore.loaded && commentStore.total > 0" class="badge">
+            {{ commentStore.total }}
+          </span>
+        </RouterLink>
       </nav>
     </aside>
 
@@ -22,10 +29,12 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import { useCommentStore } from '@/stores/comments'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
+const commentStore = useCommentStore()
 
 function onLogout() {
   userStore.logout()
@@ -63,6 +72,16 @@ function onLogout() {
   padding: 0.45rem 0.7rem;
   border-radius: 6px;
   color: #5c5c5c;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #eeece6;
+  color: #5c5c5c;
+  font-size: 0.75rem;
 }
 
 .nav-link:hover,

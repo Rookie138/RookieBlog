@@ -10,8 +10,12 @@ from app.api.auth.model import User
 from app.config.setting import settings
 from app.core.database import async_session_local
 
+from pyrate_limiter import Limiter, Rate, Duration
+from fastapi_limiter.depends import RateLimiter
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
+limiter_request = RateLimiter(limiter=Limiter(Rate(10, Duration.SECOND * 5)))
 
 async def db_getter() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_local() as session:
@@ -38,3 +42,7 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
     return user
+
+
+# async def limiter_request():
+#     return RateLimiter(limiter=Limiter(Rate(10, Duration.SECOND * 5)))

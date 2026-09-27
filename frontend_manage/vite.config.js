@@ -28,6 +28,11 @@ export default defineConfig(({ mode }) => {
           target: backend,
           changeOrigin: true,
         },
+        // 评论管理与浏览（含 DELETE /comments/manage/{slug}/{id}）
+        '/comments': {
+          target: backend,
+          changeOrigin: true,
+        },
       },
     },
   }

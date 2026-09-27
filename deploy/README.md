@@ -1,11 +1,13 @@
 # 部署到阿里云（Ubuntu 22.04/24.04 · 2C2G）上线手册
 
-目标拓扑（`example.com` 请全局替换为你的域名，`SERVER_IP` 为服务器公网 IP）：
+> 换服务器/迁移场景（旧机到期换新机）：见同目录 [`migrate-server.md`](./migrate-server.md) 与备份脚本 [`scripts/backup-blog.sh`](./scripts/backup-blog.sh)。
+
+目标拓扑（本项目实际域名：前台 `amoblog.265483.xyz`、管理端 `admin.amoblog.265483.xyz`；`SERVER_IP` 为服务器公网 IP）：
 
 ```
 用户浏览器
-   │ https://example.com        （博客前台 frontend，静态文件）
-   │ https://admin.example.com  （管理端 frontend_manage，静态文件）
+   │ https://amoblog.265483.xyz        （博客前台 frontend，静态文件）
+   │ https://admin.amoblog.265483.xyz  （管理端 frontend_manage，静态文件）
    ▼
 nginx（80/443，静态 + 反向代理 + SPA fallback + HTTPS 证书）
    │  /common-articles ──┐
@@ -25,10 +27,10 @@ MySQL 8（127.0.0.1，仅本机）
 1. **阿里云安全组**：放行入方向 `22 / 80 / 443`（只放这几个，MySQL 3306 **不要**放公网）。
 2. **Cloudflare**（你的域名托管在 CF）：
    - 进入 DNS → Records，确保有两条 A 记录，均指向服务器公网 IP：
-     - 名称 `@`（根域）→ `SERVER_IP`
-     - 名称 `admin` → `SERVER_IP`
+     - 名称 `amoblog` → `SERVER_IP`（博客前台）
+     - 名称 `admin.amoblog` → `SERVER_IP`（管理端）
    - **把云朵图标点成灰色（仅 DNS / DNS only）**，不要开橙色代理——初期直连最简单，证书、排错都不被 CF 干扰。等 HTTPS 全部就绪后想上 CDN/代理，再开橙色并把 CF SSL/TLS 模式设为 **Full (strict)**。
-   - 本机验证解析：`ping example.com` 或 `nslookup example.com` 返回你的服务器 IP 即 OK。
+   - 本机验证解析：`ping amoblog.265483.xyz` 或 `nslookup amoblog.265483.xyz` 返回你的服务器 IP 即 OK。
 
 ## 1. 服务器初始化（ssh 登录后执行，root 或 sudo）
 
@@ -96,7 +98,13 @@ export ENVIRONMENT=prod
 uv sync --frozen
 
 # 3.4 建表（alembic 迁移）
+#   全新服务器：直接 upgrade
 uv run alembic upgrade head
+
+#   ⚠ 若这台服务器上数据库已经存在（表已建好，只是 alembic_version 被清空过）：
+#   绝对不要 upgrade（会重复建表报错），改用 stamp 只登记版本号：
+#     uv run python check_db_state.py          # 先只读核对库结构，确认表/列齐全
+#     uv run alembic stamp 0001_baseline       # 再登记，不执行任何 DDL
 
 # 3.5 初始化管理员（密码走 argon2 哈希，别再存明文！）
 uv run python -c "
@@ -130,34 +138,33 @@ curl http://127.0.0.1:8000/            # {"message":"Hello World"}
 
 ```bash
 # 5.1 先放 http 配置（含全部 location，certbot 稍后自动补 https）
-#     先 sed 把里面的 example.com 换成你的域名
-sed -i 's/example\.com/你的域名/g' /tmp/blog.conf
+#     仓库里的 blog.conf 已按 amoblog.265483.xyz / admin.amoblog.265483.xyz 写好
 cp /tmp/blog.conf /etc/nginx/sites-available/blog.conf
 ln -s /etc/nginx/sites-available/blog.conf /etc/nginx/sites-enabled/blog.conf
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 
 # 5.2 此时应已可 http 访问：
-#   curl http://example.com/                → 前台首页 HTML
-#   curl http://admin.example.com/login     → 管理端登录页 HTML
+#   curl http://amoblog.265483.xyz/                → 前台首页 HTML
+#   curl http://admin.amoblog.265483.xyz/login     → 管理端登录页 HTML
 
 # 5.3 签发证书（certbot --nginx 会自动改配置加 443 + 跳转）
 apt install -y certbot python3-certbot-nginx
-certbot --nginx -d example.com -d www.example.com -d admin.example.com
+certbot --nginx -d amoblog.265483.xyz -d admin.amoblog.265483.xyz
 #   按提示填邮箱、同意条款；成功后自动续期由系统 timer 负责，无需手动
 
 # 5.4 验证
-curl -I https://example.com/                     # 200
-curl -I https://admin.example.com/login          # 200
-curl -X POST https://admin.example.com/auth/token \
+curl -I https://amoblog.265483.xyz/                     # 200
+curl -I https://admin.amoblog.265483.xyz/login          # 200
+curl -X POST https://admin.amoblog.265483.xyz/auth/token \
      -d 'username=admin&password=你的强密码'      # 返回 access_token 即全链路通
 ```
 
 ## 6. 访问测试清单
 
-- [ ] `https://example.com` 打开前台，能看文章
-- [ ] 管理端 `https://admin.example.com` 登录 → 新建草稿 → 发布 → 前台立即可见
-- [ ] 刷新/深链接：`https://example.com/articles/xxx`、`https://admin.example.com/articles/new` 不 404（SPA fallback 生效）
+- [ ] `https://amoblog.265483.xyz` 打开前台，能看文章
+- [ ] 管理端 `https://admin.amoblog.265483.xyz` 登录 → 新建草稿 → 发布 → 前台立即可见
+- [ ] 刷新/深链接：`https://amoblog.265483.xyz/articles/xxx`、`https://admin.amoblog.265483.xyz/articles/new` 不 404（SPA fallback 生效）
 - [ ] 手机访问正常（响应式样式已内置）
 
 ## 7. 日常维护

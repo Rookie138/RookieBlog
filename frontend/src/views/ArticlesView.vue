@@ -9,52 +9,86 @@
 
     <p v-if="loading" class="muted">加载中…</p>
     <p v-else-if="error" class="error">{{ error }}</p>
-    <p v-else-if="filtered.length === 0" class="muted">没有找到相关文章。</p>
-    <ul v-else class="article-list">
-      <li v-for="item in filtered" :key="item.slug" class="article-item">
-        <h3>
-          <RouterLink :to="{ name: 'article-detail', params: { slug: item.slug } }">
-            {{ item.title }}
-          </RouterLink>
-        </h3>
-        <p>{{ item.summary }}</p>
-      </li>
-    </ul>
+    <p v-else-if="filtered.length === 0" class="muted">
+      {{ keyword ? '没有找到相关文章。' : '还没有已发布的文章。' }}
+    </p>
+    <template v-else>
+      <ul class="article-list">
+        <li v-for="item in filtered" :key="item.slug" class="article-item">
+          <h3>
+            <RouterLink :to="{ name: 'article-detail', params: { slug: item.slug } }">
+              {{ item.title }}
+            </RouterLink>
+          </h3>
+          <p v-if="item.summary" class="summary">{{ item.summary }}</p>
+          <p class="stats">
+            <!-- 列表接口（ArticleSummary）不返回 created_at，只有 updated_time，所以这里显示更新时间 -->
+            <span v-if="item.updated_time">更新于 {{ formatDate(item.updated_time) }}</span>
+            <span v-if="item.view_count != null">· 阅读 {{ item.view_count }}</span>
+            <span v-if="item.comment_count != null">· 评论 {{ item.comment_count }}</span>
+          </p>
+        </li>
+      </ul>
+
+      <!-- 后端按页返回（默认每页 10 篇），本地搜索只覆盖已加载的部分 -->
+      <div v-if="!keyword && articleStore.hasMore" class="more">
+        <button type="button" class="more-btn" :disabled="articleStore.loadingMore" @click="onLoadMore">
+          {{ articleStore.loadingMore ? '加载中…' : '加载更多' }}
+        </button>
+      </div>
+      <p v-else-if="!keyword && articleStore.list.length > 0" class="muted end">已经到底了</p>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { fetchArticles } from '@/api/articles'
 
-const articles = ref([])
+import { useArticleStore } from '@/stores/articles'
+import { formatDate } from '@/utils/format'
+
+const articleStore = useArticleStore()
 const keyword = ref('')
-const loading = ref(true)
-const error = ref('')
 
-const filtered = computed(() => {
-  const q = keyword.value.toLowerCase()
-  if (!q) return articles.value
-  return articles.value.filter((item) => {
-    return (
-      item.title?.toLowerCase().includes(q) || item.summary?.toLowerCase().includes(q)
-    )
-  })
-})
+const loading = computed(() => articleStore.loadingList)
+const error = computed(() => articleStore.listError)
+const filtered = computed(() => articleStore.search(keyword.value))
 
-onMounted(async () => {
-  try {
-    const data = await fetchArticles()
-    articles.value = data.articles || []
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    loading.value = false
-  }
+function onLoadMore() {
+  articleStore.loadMore()
+}
+
+onMounted(() => {
+  articleStore.loadList()
 })
 </script>
 
 <style scoped>
+.more {
+  margin-top: 1.25rem;
+  text-align: center;
+}
+
+.more-btn {
+  padding: 0.5rem 1.1rem;
+  border: 1px solid #e4e2dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #2d6a4f;
+  cursor: pointer;
+}
+
+.more-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.end {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
 .search {
   display: block;
   margin: 0 0 1.25rem;
@@ -93,10 +127,19 @@ onMounted(async () => {
   color: #2d6a4f;
 }
 
-.article-item p {
-  margin: 0;
+.summary {
+  margin: 0 0 0.4rem;
   color: #5c5c5c;
   font-size: 0.95rem;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  color: #8a8a8a;
+  font-size: 0.82rem;
 }
 
 .error {

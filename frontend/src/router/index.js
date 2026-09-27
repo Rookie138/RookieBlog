@@ -17,6 +17,8 @@ const router = createRouter({
       path: '/articles/:slug',
       name: 'article-detail',
       component: ArticleDetailView,
+      // 标题在详情页拿到数据后会被替换成文章标题，这里的默认值用于加载阶段
+      meta: { title: '文章详情' },
     },
     {
       path: '/:pathMatch(.*)*',

@@ -10,12 +10,16 @@ class ArticleSummary(BaseModel):
     slug: str
     title: str
     summary: Optional[str] = None
+    view_count: int
+    comment_count: int
     status: Optional[str] = None
+    updated_time: Optional[datetime] = None
 
 
 class ArticleDetail(ArticleSummary):
     context: str
     created_at: Optional[datetime] = None
+    updated_time: Optional[datetime] = None
 
 
 class ArticleCreate(BaseModel):

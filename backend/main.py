@@ -4,8 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.articles.common_controller import router as common_articles_router
 from app.api.articles.manage_controller import router as manage_articles_router
 from app.api.auth.controller import router as auth_router
+from app.api.comments.controller import router as comments_router
 
-app = FastAPI(title="BlogSystem")
+from app.core.exceptions import register_exception_handler
+from app.middleware.trace_id import TraceIDMiddleware
+from app.init_app import lifespan
+
+app = FastAPI(title="BlogSystem", lifespan=lifespan)
+
+register_exception_handler(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +30,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(common_articles_router)
 app.include_router(manage_articles_router)
+app.include_router(comments_router)
+
+app.add_middleware(TraceIDMiddleware)
 
 
 @app.get("/")

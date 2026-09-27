@@ -2,12 +2,23 @@
   <div class="view">
     <p v-if="loading" class="muted">加载中…</p>
     <p v-else-if="error" class="error">{{ error }}</p>
+
     <template v-else-if="article">
       <h1>{{ article.title }}</h1>
-      <p v-if="publishedDate" class="meta">{{ publishedDate }}</p>
-      <p v-if="article.summary" class="muted">{{ article.summary }}</p>
+
+      <p class="meta">
+        <span v-if="publishedDate">{{ publishedDate }}</span>
+        <span v-if="article.view_count != null">· 阅读 {{ article.view_count }}</span>
+        <span v-if="commentTotal != null">· 评论 {{ commentTotal }}</span>
+      </p>
+
+      <p v-if="article.summary" class="summary">{{ article.summary }}</p>
+
       <div class="markdown-body" v-html="html"></div>
-      <RouterLink :to="{ name: 'articles' }">返回文章列表</RouterLink>
+
+      <RouterLink :to="{ name: 'articles' }">← 返回文章列表</RouterLink>
+
+      <CommentSection ref="commentSectionRef" :slug="article.slug" />
     </template>
   </div>
 </template>
@@ -15,49 +26,47 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchArticleDetail } from '@/api/articles'
-import { renderMarkdown } from '@/utils/markdown'
+
+import CommentSection from '@/components/CommentSection.vue'
 import { SITE_NAME } from '@/config'
+import { useArticleStore } from '@/stores/articles'
+import { useCommentStore } from '@/stores/comments'
+import { formatDate } from '@/utils/format'
+import { renderMarkdown } from '@/utils/markdown'
 
 const route = useRoute()
-const article = ref(null)
-const loading = ref(true)
+const articleStore = useArticleStore()
+const commentStore = useCommentStore()
+
 const error = ref('')
+const commentSectionRef = ref(null)
 
-function formatDate(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
+const article = computed(() => articleStore.detail)
+const loading = computed(() => articleStore.loadingDetail)
 const html = computed(() => renderMarkdown(article.value?.context || ''))
 const publishedDate = computed(() => formatDate(article.value?.created_at))
+/** 评论总数用评论接口返回的 total_comment（文章表里的 comment_count 只在发表时 +1，删除不 -1，不准） */
+const commentTotal = computed(() => commentStore.metaOf(route.params.slug).total)
 
 async function load(slug) {
-  loading.value = true
   error.value = ''
-  article.value = null
   try {
-    const data = await fetchArticleDetail(slug)
-    if (!data.article) {
+    const data = await articleStore.loadDetail(slug, { force: true })
+    if (!data) {
       error.value = '文章不存在或尚未发布'
       return
     }
-    article.value = data.article
-    document.title = `${data.article.title} · ${SITE_NAME}`
+    document.title = `${data.title} · ${SITE_NAME}`
+    // 评论数由评论区加载后统计：
+    // 文章表里的 comment_count 只在发表评论时 +1，删除评论时不会 -1，并不可靠，所以不直接用它
+    commentSectionRef.value?.load()
   } catch (e) {
     error.value = e.message
-  } finally {
-    loading.value = false
   }
 }
 
 onMounted(() => load(route.params.slug))
+
 watch(
   () => route.params.slug,
   (slug) => {
@@ -72,9 +81,20 @@ watch(
 }
 
 .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   margin: -0.4rem 0 1rem;
   color: #8a8a8a;
   font-size: 0.88rem;
+}
+
+.summary {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #f1efe9;
+  border-radius: 8px;
+  color: #5c5c5c;
 }
 
 .markdown-body {

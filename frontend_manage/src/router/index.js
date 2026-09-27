@@ -33,6 +33,12 @@ const router = createRouter({
           component: () => import('@/views/ArticleEditView.vue'),
           meta: { title: '编辑文章', requiresAuth: true },
         },
+        {
+          path: 'comments',
+          name: 'comments',
+          component: () => import('@/views/CommentsView.vue'),
+          meta: { title: '评论管理', requiresAuth: true },
+        },
       ],
     },
     {

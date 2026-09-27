@@ -29,6 +29,7 @@ if config.config_file_name is not None:
 from app.core.base_model import Base
 from app.api.auth.model import User
 from app.api.articles.model import Article
+from app.api.comments.model import Comment
 
 target_metadata = Base.metadata
 

@@ -51,7 +51,6 @@ node_modules
 
 backend/logs
 backend/*.db
-backend/alembic/versions/*
 !backend/alembic/versions/.gitkeep
 
 docker/nginx/app/dist
@@ -80,3 +79,4 @@ frontend/app/*
 CLAUDE.md
 AGENTS.md
 .codebuddy
+deploy/

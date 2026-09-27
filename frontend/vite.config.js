@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => {
           target: backend,
           changeOrigin: true,
         },
+        // 评论接口（前缀 /comments，见后端 app/api/comments/controller.py）
+        '/comments': {
+          target: backend,
+          changeOrigin: true,
+        },
       },
     },
   }

@@ -19,7 +19,13 @@
               {{ item.title }}
             </RouterLink>
           </h3>
-          <p>{{ item.summary }}</p>
+          <p v-if="item.summary" class="summary">{{ item.summary }}</p>
+          <p class="stats">
+            <!-- 列表接口（ArticleSummary）不返回 created_at，只有 updated_time，所以这里显示更新时间 -->
+            <span v-if="item.updated_time">更新于 {{ formatDate(item.updated_time) }}</span>
+            <span v-if="item.view_count != null">· 阅读 {{ item.view_count }}</span>
+            <span v-if="item.comment_count != null">· 评论 {{ item.comment_count }}</span>
+          </p>
         </li>
       </ul>
     </section>
@@ -27,22 +33,19 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { fetchArticles } from '@/api/articles'
+import { computed, onMounted } from 'vue'
 
-const latest = ref([])
-const loading = ref(true)
-const error = ref('')
+import { useArticleStore } from '@/stores/articles'
+import { formatDate } from '@/utils/format'
 
-onMounted(async () => {
-  try {
-    const data = await fetchArticles()
-    latest.value = (data.articles || []).slice(0, 5)
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    loading.value = false
-  }
+const articleStore = useArticleStore()
+
+const latest = computed(() => articleStore.latest)
+const loading = computed(() => articleStore.loadingList)
+const error = computed(() => articleStore.listError)
+
+onMounted(() => {
+  articleStore.loadList()
 })
 </script>
 
@@ -88,9 +91,18 @@ onMounted(async () => {
   color: #2d6a4f;
 }
 
-.article-item p {
-  margin: 0;
+.summary {
+  margin: 0 0 0.4rem;
   color: #5c5c5c;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  color: #8a8a8a;
+  font-size: 0.82rem;
 }
 
 .error {
